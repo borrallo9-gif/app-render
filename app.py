@@ -1,42 +1,55 @@
-import os
-from PIL import Image
+import gradio as gr
 from diffusers import StableDiffusionXLPipeline
+from PIL import Image
+import torch
+import os
 
-# Token desde Secrets
-HF_TOKEN = os.environ.get("HF_TOKEN")
+# Cargar el token desde Secrets
+HF_TOKEN = os.environ.get("HF_TOKEN")  # Asegúrate de haberlo guardado como "HF_TOKEN" en tu Space
 
-# Cargar modelo SDXL (CPU)
+# Cargar pipeline en CPU
 pipe = StableDiffusionXLPipeline.from_pretrained(
     "stabilityai/stable-diffusion-xl-base-1.0",
-    use_auth_token=HF_TOKEN,
-    use_safetensors=True
+    torch_dtype=torch.float32,
+    use_auth_token=HF_TOKEN
 )
-pipe.to("cpu")
+pipe.to("cpu")  # CPU
 
-# Cargar imagen local
-init_image = Image.open("ruta/a/tu/imagen.jpg").convert("RGB")
+def decorar_imagen(init_image, prompt, steps=25, strength=0.6):
+    """
+    init_image: PIL.Image subido en Gradio
+    prompt: texto que describe la decoración
+    steps: número de steps del modelo
+    strength: cuánto transformar la imagen original (0-1)
+    """
+    # Asegurar que la imagen esté en RGB
+    init_image = init_image.convert("RGB")
 
-# Prompt de decoración
-prompt = "Añadir un sofá gris en la pared de la derecha y un cuadro moderno encima."
+    # Generar imagen decorada
+    result = pipe(prompt=prompt, image=init_image, num_inference_steps=steps, strength=strength).images[0]
+    return result
 
-# Parámetros de generación
-num_inference_steps = 50
-guidance_scale = 7.5
-strength = 0.75  # intensidad del cambio sobre la imagen original
+# Interfaz Gradio
+with gr.Blocks() as demo:
+    gr.Markdown("## Decorador de imágenes con Stable Diffusion XL")
+    with gr.Row():
+        with gr.Column():
+            input_image = gr.Image(type="pil", label="Sube tu imagen")
+            prompt_text = gr.Textbox(label="Describe la decoración que quieres")
+            steps_slider = gr.Slider(1, 50, value=25, step=1, label="Steps")
+            strength_slider = gr.Slider(0.0, 1.0, value=0.6, step=0.05, label="Fuerza de transformación")
+            submit_btn = gr.Button("Decorar")
+        with gr.Column():
+            output_image = gr.Image(label="Imagen decorada")
 
-# Generar imagen
-output = pipe(
-    prompt=prompt,
-    init_image=init_image,
-    strength=strength,
-    guidance_scale=guidance_scale,
-    num_inference_steps=num_inference_steps
-)
+    submit_btn.click(
+        decorar_imagen,
+        inputs=[input_image, prompt_text, steps_slider, strength_slider],
+        outputs=output_image
+    )
 
-# Guardar y mostrar resultado
-output_image = output.images[0]
-output_image.save("resultado.png")
-output_image.show()
+demo.launch()
+
 
 
 
