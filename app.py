@@ -2,10 +2,13 @@ import gradio as gr
 import torch
 from diffusers import StableDiffusionInstructPix2PixPipeline, EulerAncestralDiscreteScheduler
 
+# Modelo que vas a usar
 model_id = "timbrooks/instruct-pix2pix"
 
+# Detecta si hay GPU disponible
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+# Carga el modelo
 pipe = StableDiffusionInstructPix2PixPipeline.from_pretrained(
     model_id,
     torch_dtype=torch.float16 if device == "cuda" else torch.float32,
@@ -14,9 +17,12 @@ pipe = StableDiffusionInstructPix2PixPipeline.from_pretrained(
 
 pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
 
-def decorar(imagen, prompt, guidance_scale, num_steps):
+# Función de decoración optimizada para CPU
+def decorar(imagen, prompt, guidance_scale=7.5, num_steps=10):
     if imagen is None or prompt.strip() == "":
         return None
+    # Limita los pasos de inferencia para CPU gratuita
+    num_steps = min(num_steps, 10)
     resultado = pipe(
         prompt,
         image=imagen,
@@ -25,16 +31,22 @@ def decorar(imagen, prompt, guidance_scale, num_steps):
     ).images[0]
     return resultado
 
+# Título y descripción de la app
 titulo = "Decorador de habitaciones con IA"
-descripcion = "Sube una foto de tu habitación vacía y describe cómo quieres decorarla. Ejemplo: 'Añade sofá gris y planta verde junto a la ventana'."
+descripcion = (
+    "Sube una foto de tu habitación vacía y describe cómo quieres decorarla.\n"
+    "Ejemplo: 'Añade sofá gris y planta verde junto a la ventana'.\n\n"
+    "Optimizado para CPU gratuita: la generación puede tardar 30–60 s."
+)
 
+# Interfaz Gradio
 demo = gr.Interface(
     fn=decorar,
     inputs=[
         gr.Image(type="pil", label="Sube tu habitación"),
         gr.Textbox(label="Describe la decoración que deseas"),
         gr.Slider(1, 10, value=7.5, label="Nivel de detalle"),
-        gr.Slider(5, 50, value=20, step=1, label="Pasos de inferencia")
+        gr.Slider(5, 20, value=10, step=1, label="Pasos de inferencia (max 10 para CPU)")
     ],
     outputs=gr.Image(label="Habitación decorada"),
     title=titulo,
@@ -42,3 +54,4 @@ demo = gr.Interface(
 )
 
 demo.launch()
+
