@@ -2,9 +2,10 @@ import gradio as gr
 import torch
 from diffusers import StableDiffusionInpaintPipeline, EulerAncestralDiscreteScheduler
 
-# Modelo inpainting de ControlNet
-model_id = "lllyasviel/control_v11p_sd15_inpaint"
+# Modelo inpainting disponible públicamente
+model_id = "runwayml/stable-diffusion-inpainting"
 
+# Detecta si hay GPU
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Carga del pipeline
@@ -22,7 +23,7 @@ def decorar(imagen, mask, prompt, guidance_scale, num_steps):
         return None
     # Limita pasos en CPU para que no se cuelgue
     if device == "cpu":
-        num_steps = min(num_steps, 25)  # CPU más lenta
+        num_steps = min(num_steps, 25)
     resultado = pipe(
         prompt=prompt,
         image=imagen,
@@ -32,8 +33,8 @@ def decorar(imagen, mask, prompt, guidance_scale, num_steps):
     ).images[0]
     return resultado
 
-# Título y descripción
-titulo = "Decorador de habitaciones con IA (ControlNet Inpainting)"
+# Título y descripción de la app
+titulo = "Decorador de habitaciones con IA (Inpainting)"
 descripcion = (
     "Sube una foto de tu habitación vacía y pinta de blanco la zona que quieras decorar.\n"
     "Describe la decoración que deseas en el prompt.\n"
@@ -41,7 +42,7 @@ descripcion = (
     "Optimizado para CPU gratuita: generación rápida usando pasos limitados."
 )
 
-# Interfaz Gradio con sliders actualizados
+# Interfaz Gradio con sliders
 demo = gr.Interface(
     fn=decorar,
     inputs=[
@@ -57,6 +58,7 @@ demo = gr.Interface(
 )
 
 demo.launch()
+
 
 
 
