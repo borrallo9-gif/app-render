@@ -2,8 +2,8 @@ import gradio as gr
 import torch
 from diffusers import StableDiffusionImg2ImgPipeline, EulerAncestralDiscreteScheduler
 
-# Modelo img2img de Stability AI
-model_id = "stabilityai/stable-diffusion-2-1-img2img"
+# Modelo img2img público
+model_id = "runwayml/stable-diffusion-v1-5-img2img"
 
 # Detecta si hay GPU
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -60,6 +60,7 @@ demo = gr.Interface(
 )
 
 demo.launch()
+
 
 
 
