@@ -1,52 +1,47 @@
+import os
+from PIL import Image
 import torch
 from diffusers import StableDiffusionXLPipeline
-from PIL import Image
-import requests
-from io import BytesIO
 
-# Tu token de Hugging Face
-token = "TU_TOKEN_HF"
+# Tomar token desde los Secrets de Hugging Face
+HF_TOKEN = os.environ.get("HF_TOKEN")
 
-# Cargar el modelo
+# Cargar modelo SDXL (CPU)
 pipe = StableDiffusionXLPipeline.from_pretrained(
     "stabilityai/stable-diffusion-xl-base-1.0",
-    torch_dtype=torch.float32,  # Usar float32 para CPU
-    use_auth_token=token
+    torch_dtype=torch.float32,
+    use_safetensors=True,
+    revision="fp16",
+    use_auth_token=HF_TOKEN
 )
 pipe.to("cpu")
 
-# Función para cargar una imagen desde una URL
-def load_image(url):
-    response = requests.get(url)
-    img = Image.open(BytesIO(response.content)).convert("RGB")
-    return img
+# Cargar imagen local (reemplaza con tu archivo)
+init_image = Image.open("ruta/a/tu/imagen.jpg").convert("RGB")
 
-# URL de la imagen de entrada
-input_image_url = "URL_DE_TU_IMAGEN"
-
-# Cargar la imagen
-init_image = load_image(input_image_url)
-
-# Descripción del estilo o cambios deseados
-description = "Descripción detallada de la decoración que deseas aplicar."
+# Prompt de decoración
+prompt = "Añadir un sofá gris en la pared de la derecha y un cuadro moderno encima."
 
 # Parámetros de generación
-guidance_scale = 7.5  # Controla la adherencia al prompt
-num_inference_steps = 50  # Número de pasos de inferencia
-strength = 0.75  # Fuerza de la modificación de la imagen
+num_inference_steps = 50
+guidance_scale = 7.5
+strength = 0.75  # intensidad del cambio sobre la imagen original
 
-# Generar la imagen modificada
+# Generar imagen
 output = pipe(
-    prompt=description,
+    prompt=prompt,
     init_image=init_image,
     strength=strength,
     guidance_scale=guidance_scale,
     num_inference_steps=num_inference_steps
 )
 
-# Mostrar la imagen resultante
+# Guardar resultado
 output_image = output.images[0]
+output_image.save("resultado.png")
 output_image.show()
+
+
 
 
 
