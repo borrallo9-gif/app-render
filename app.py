@@ -1,65 +1,53 @@
-import gradio as gr
 import torch
-from diffusers import StableDiffusionImg2ImgPipeline, EulerAncestralDiscreteScheduler
+from diffusers import StableDiffusionXLPipeline
+from PIL import Image
+import requests
+from io import BytesIO
 
-# Modelo img2img público
-model_id = "runwayml/stable-diffusion-v1-5-img2img"
+# Tu token de Hugging Face
+token = "TU_TOKEN_HF"
 
-# Detecta si hay GPU
-device = "cuda" if torch.cuda.is_available() else "cpu"
+# Cargar el modelo
+pipe = StableDiffusionXLPipeline.from_pretrained(
+    "stabilityai/stable-diffusion-xl-base-1.0",
+    torch_dtype=torch.float32,  # Usar float32 para CPU
+    use_auth_token=token
+)
+pipe.to("cpu")
 
-# Carga del pipeline
-pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
-    model_id,
-    torch_dtype=torch.float16 if device == "cuda" else torch.float32,
-    safety_checker=None
-).to(device)
+# Función para cargar una imagen desde una URL
+def load_image(url):
+    response = requests.get(url)
+    img = Image.open(BytesIO(response.content)).convert("RGB")
+    return img
 
-pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
+# URL de la imagen de entrada
+input_image_url = "URL_DE_TU_IMAGEN"
 
-# Función de decoración
-def decorar(imagen, prompt, strength, guidance_scale, num_steps):
-    if imagen is None or prompt.strip() == "":
-        return None
+# Cargar la imagen
+init_image = load_image(input_image_url)
 
-    # Limita los pasos en CPU para no colgar el Space
-    if device == "cpu":
-        num_steps = min(num_steps, 25)
+# Descripción del estilo o cambios deseados
+description = "Descripción detallada de la decoración que deseas aplicar."
 
-    resultado = pipe(
-        prompt=prompt,
-        init_image=imagen,
-        strength=strength,
-        guidance_scale=guidance_scale,
-        num_inference_steps=num_steps
-    ).images[0]
+# Parámetros de generación
+guidance_scale = 7.5  # Controla la adherencia al prompt
+num_inference_steps = 50  # Número de pasos de inferencia
+strength = 0.75  # Fuerza de la modificación de la imagen
 
-    return resultado
-
-# Título y descripción de la app
-titulo = "Decorador de habitaciones con IA (img2img)"
-descripcion = (
-    "Sube una foto de tu habitación vacía y escribe cómo quieres decorarla.\n"
-    "Ejemplo: 'Añade un sofá gris moderno junto a la pared derecha y un cuadro encima'.\n\n"
-    "Optimizado para CPU gratuita: generación rápida usando pasos limitados."
+# Generar la imagen modificada
+output = pipe(
+    prompt=description,
+    init_image=init_image,
+    strength=strength,
+    guidance_scale=guidance_scale,
+    num_inference_steps=num_inference_steps
 )
 
-# Interfaz Gradio
-demo = gr.Interface(
-    fn=decorar,
-    inputs=[
-        gr.Image(type="pil", label="Sube tu habitación"),
-        gr.Textbox(label="Describe la decoración que deseas"),
-        gr.Slider(0.1, 0.9, value=0.5, step=0.05, label="Fuerza de cambios (strength)"),
-        gr.Slider(1, 15, value=9, step=1, label="Nivel de detalle (guidance scale)"),
-        gr.Slider(5, 50, value=20, step=1, label="Pasos de inferencia")
-    ],
-    outputs=gr.Image(label="Habitación decorada"),
-    title=titulo,
-    description=descripcion
-)
+# Mostrar la imagen resultante
+output_image = output.images[0]
+output_image.show()
 
-demo.launch()
 
 
 
