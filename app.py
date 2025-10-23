@@ -1,22 +1,19 @@
 import os
 from PIL import Image
-import torch
 from diffusers import StableDiffusionXLPipeline
 
-# Tomar token desde los Secrets de Hugging Face
+# Token desde Secrets
 HF_TOKEN = os.environ.get("HF_TOKEN")
 
 # Cargar modelo SDXL (CPU)
 pipe = StableDiffusionXLPipeline.from_pretrained(
     "stabilityai/stable-diffusion-xl-base-1.0",
-    torch_dtype=torch.float32,
-    use_safetensors=True,
-    revision="fp16",
-    use_auth_token=HF_TOKEN
+    use_auth_token=HF_TOKEN,
+    use_safetensors=True
 )
 pipe.to("cpu")
 
-# Cargar imagen local (reemplaza con tu archivo)
+# Cargar imagen local
 init_image = Image.open("ruta/a/tu/imagen.jpg").convert("RGB")
 
 # Prompt de decoración
@@ -36,10 +33,11 @@ output = pipe(
     num_inference_steps=num_inference_steps
 )
 
-# Guardar resultado
+# Guardar y mostrar resultado
 output_image = output.images[0]
 output_image.save("resultado.png")
 output_image.show()
+
 
 
 
