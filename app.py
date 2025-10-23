@@ -1,49 +1,71 @@
+import gradio as gr
+import torch
 import os
 from diffusers import StableDiffusionImg2ImgPipeline
 from PIL import Image
-import gradio as gr
 
-# 🔐 Cargamos tu token desde los Secrets del Space
+# === CONFIGURACIÓN DEL TOKEN (usa tu Secret 'Token_App') ===
 token = os.getenv("Token_App")
-
 if not token:
     raise ValueError("❌ No se encontró el token. Asegúrate de tener 'Token_App' en los Secrets del Space.")
 
-# 🚀 Cargamos el modelo
+# === CARGAR MODELO LIGERO ===
 pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
-    "runwayml/stable-diffusion-v1-5",
-    use_auth_token=token
-).to("cpu")  # usar "cuda" si tienes GPU
+    "SG161222/Realistic_Vision_V5.1_noVAE",
+    torch_dtype=torch.float32,
+    use_safetensors=True,
+    revision="main",
+    safety_checker=None,
+    requires_safety_checker=False,
+    token=token
+)
 
-# ⚙️ Función principal para generar la imagen
-def decorate_room(image, prompt, strength=0.6, guidance=7.5, steps=30):
+# Usar CPU
+pipe = pipe.to("cpu")
+
+# === FUNCIÓN PARA PROCESAR LA IMAGEN ===
+def decorar_imagen(image, prompt, strength=0.6, steps=20):
     if image is None:
-        return None
+        return "⚠️ Sube una imagen antes de continuar."
+
+    # Reducir resolución a 512x512 para acelerar el proceso
+    image = image.convert("RGB")
+    image = image.resize((512, 512))
+
+    # Generar imagen decorada
     result = pipe(
         prompt=prompt,
         image=image,
         strength=strength,
-        guidance_scale=guidance,
-        num_inference_steps=steps
+        num_inference_steps=steps,
+        guidance_scale=7.5
     ).images[0]
+
     return result
 
-# 🎨 Interfaz Gradio
-interface = gr.Interface(
-    fn=decorate_room,
+# === INTERFAZ GRADIO ===
+title = "🖼️ Decorador Inteligente - Versión CPU Optimizada"
+description = """
+Sube una imagen (por ejemplo, una habitación o fachada) y describe cómo quieres decorarla o modificarla.
+Ejemplo: "Paredes blancas, estilo moderno con plantas y luz natural".
+"""
+
+iface = gr.Interface(
+    fn=decorar_imagen,
     inputs=[
-        gr.Image(label="Sube la imagen de tu habitación", type="pil"),
-        gr.Textbox(label="Descripción de la decoración deseada (ej: pared azul, muebles modernos...)"),
-        gr.Slider(0.1, 1.0, value=0.6, step=0.1, label="Fuerza (strength)"),
-        gr.Slider(1, 15, value=7.5, step=0.5, label="Guía (guidance scale)"),
-        gr.Slider(10, 50, value=30, step=1, label="Pasos de inferencia")
+        gr.Image(label="Sube tu imagen"),
+        gr.Textbox(label="Descripción (prompt)", placeholder="Ejemplo: paredes blancas y decoración moderna"),
+        gr.Slider(0.1, 1.0, value=0.6, label="Fuerza del cambio (strength)"),
+        gr.Slider(5, 50, value=20, step=1, label="Pasos de inferencia (steps)")
     ],
-    outputs=gr.Image(label="Habitación decorada"),
-    title="Decorador de Habitaciones 🏡",
-    description="Sube una imagen de tu habitación y escribe cómo te gustaría decorarla. El modelo aplicará los cambios automáticamente."
+    outputs=gr.Image(label="Imagen Decorada"),
+    title=title,
+    description=description,
+    allow_flagging="never"
 )
 
-interface.launch()
+iface.launch()
+
 
 
 
