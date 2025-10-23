@@ -1,61 +1,52 @@
-import torch
-from diffusers import StableDiffusionImg2ImgPipeline
-from PIL import Image
 import gradio as gr
+from diffusers import StableDiffusionImg2ImgPipeline
+import torch
+from PIL import Image
 import os
 
-# Carga del pipeline con tu token desde los "Secrets" del Space
+# Cargar el token desde los secrets del Space
+token = os.getenv("HUGGINGFACE_TOKEN")
+
+# Cargar el modelo desde Hugging Face
 pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
-    "Lykon/dreamshaper-7",
-    torch_dtype=torch.float16,
-    use_safetensors=True,
-    token=os.environ.get("HF_TOKEN")
-).to("cuda" if torch.cuda.is_available() else "cpu")
+    "runwayml/stable-diffusion-v1-5",
+    torch_dtype=torch.float32,
+    use_auth_token=token
+)
 
+# Usar CPU (para Spaces sin GPU)
+pipe = pipe.to("cpu")
 
-def generar_imagen(prompt, image, strength, guidance):
-    """
-    Genera una imagen decorada a partir de una imagen subida y un prompt de descripción.
-    """
-    if image is None:
-        return "Por favor, sube una imagen."
-
-    # Convierte la imagen a RGB y asegura compatibilidad
-    init_image = image.convert("RGB")
-
-    # Genera imagen a partir del prompt y la imagen base
-    result = pipe(
+# Función principal: recibe imagen y prompt, devuelve imagen modificada
+def generar_imagen(prompt, imagen, fuerza=0.6, pasos=35):
+    if imagen is None:
+        raise gr.Error("Por favor, sube una imagen base.")
+    imagen = imagen.convert("RGB")
+    resultado = pipe(
         prompt=prompt,
-        image=init_image,
-        strength=strength,        # Cuánto cambia respecto a la imagen original (0-1)
-        guidance_scale=guidance,  # Qué tanto sigue el texto
-        num_inference_steps=30    # Puedes ajustar para más calidad (pero más lento)
+        image=imagen,
+        strength=fuerza,     # Cuánto cambia respecto a la imagen base (0 = igual, 1 = muy distinto)
+        num_inference_steps=pasos
     ).images[0]
+    return resultado
 
-    return result
+# Interfaz de Gradio
+demo = gr.Interface(
+    fn=generar_imagen,
+    inputs=[
+        gr.Textbox(label="Describe cómo quieres modificar la imagen (prompt):"),
+        gr.Image(label="Sube una imagen base"),
+        gr.Slider(0, 1, value=0.6, step=0.05, label="Intensidad del cambio (strength)"),
+        gr.Slider(10, 50, value=35, step=5, label="Número de pasos de inferencia")
+    ],
+    outputs=gr.Image(label="Imagen generada"),
+    title="Decorador de Imágenes - Stable Diffusion v1.5",
+    description="Sube una imagen y describe cómo quieres que cambie (por ejemplo: 'versión futurista de la habitación')."
+)
 
-
-# Interfaz con Gradio
-with gr.Blocks() as demo:
-    gr.Markdown("## 🖼️ Decorador de Imagen con DreamShaper-7 (Img2Img)")
-    gr.Markdown("Sube una imagen base y describe cómo quieres decorarla o transformarla.")
-
-    with gr.Row():
-        with gr.Column():
-            prompt = gr.Textbox(label="Descripción (prompt)", placeholder="Ej: una versión mágica con luces de neón y fondo estrellado")
-            image = gr.Image(label="Sube tu imagen base", type="pil")
-            strength = gr.Slider(0.1, 1.0, value=0.6, step=0.05, label="Intensidad del cambio (strength)")
-            guidance = gr.Slider(1.0, 12.0, value=7.5, step=0.5, label="Guía del texto (guidance)")
-            btn = gr.Button("✨ Generar imagen")
-
-        with gr.Column():
-            output = gr.Image(label="Imagen generada")
-
-    btn.click(fn=generar_imagen, inputs=[prompt, image, strength, guidance], outputs=output)
-
-# Lanza la app
 if __name__ == "__main__":
     demo.launch()
+
 
 
 
