@@ -18,11 +18,12 @@ pipe = StableDiffusionInstructPix2PixPipeline.from_pretrained(
 pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
 
 # Función de decoración optimizada para CPU
-def decorar(imagen, prompt, guidance_scale=7.5, num_steps=10):
+def decorar(imagen, prompt, guidance_scale, num_steps):
     if imagen is None or prompt.strip() == "":
         return None
-    # Limita los pasos de inferencia para CPU gratuita
-    num_steps = min(num_steps, 10)
+    # Limita los pasos para CPU gratuita
+    if device == "cpu":
+        num_steps = min(num_steps, 15)  # máximo 15 pasos en CPU
     resultado = pipe(
         prompt,
         image=imagen,
@@ -39,14 +40,14 @@ descripcion = (
     "Optimizado para CPU gratuita: la generación puede tardar 30–60 s."
 )
 
-# Interfaz Gradio
+# Interfaz Gradio con sliders originales
 demo = gr.Interface(
     fn=decorar,
     inputs=[
         gr.Image(type="pil", label="Sube tu habitación"),
         gr.Textbox(label="Describe la decoración que deseas"),
-        gr.Slider(1, 10, value=7.5, label="Nivel de detalle"),
-        gr.Slider(5, 20, value=10, step=1, label="Pasos de inferencia (max 10 para CPU)")
+        gr.Slider(1, 10, value=7.5, label="Nivel de detalle (guidance scale)"),
+        gr.Slider(5, 50, value=20, step=1, label="Pasos de inferencia")
     ],
     outputs=gr.Image(label="Habitación decorada"),
     title=titulo,
@@ -54,4 +55,5 @@ demo = gr.Interface(
 )
 
 demo.launch()
+
 
