@@ -1,15 +1,14 @@
 import gradio as gr
 import torch
-from diffusers import StableDiffusionInstructPix2PixPipeline, EulerAncestralDiscreteScheduler
+from diffusers import StableDiffusionInpaintPipeline, EulerAncestralDiscreteScheduler
 
-# Modelo que vas a usar
-model_id = "timbrooks/instruct-pix2pix"
+# Modelo inpainting de ControlNet
+model_id = "lllyasviel/control_v11p_sd15_inpaint"
 
-# Detecta si hay GPU disponible
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# Carga el modelo
-pipe = StableDiffusionInstructPix2PixPipeline.from_pretrained(
+# Carga del pipeline
+pipe = StableDiffusionInpaintPipeline.from_pretrained(
     model_id,
     torch_dtype=torch.float16 if device == "cuda" else torch.float32,
     safety_checker=None
@@ -17,37 +16,40 @@ pipe = StableDiffusionInstructPix2PixPipeline.from_pretrained(
 
 pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
 
-# Función de decoración optimizada para CPU
-def decorar(imagen, prompt, guidance_scale, num_steps):
+# Función de decoración con máscara
+def decorar(imagen, mask, prompt, guidance_scale, num_steps):
     if imagen is None or prompt.strip() == "":
         return None
-    # Limita los pasos para CPU gratuita
+    # Limita pasos en CPU para que no se cuelgue
     if device == "cpu":
-        num_steps = min(num_steps, 15)  # máximo 15 pasos en CPU
+        num_steps = min(num_steps, 25)  # CPU más lenta
     resultado = pipe(
-        prompt,
+        prompt=prompt,
         image=imagen,
+        mask_image=mask,
         guidance_scale=guidance_scale,
         num_inference_steps=num_steps
     ).images[0]
     return resultado
 
-# Título y descripción de la app
-titulo = "Decorador de habitaciones con IA"
+# Título y descripción
+titulo = "Decorador de habitaciones con IA (ControlNet Inpainting)"
 descripcion = (
-    "Sube una foto de tu habitación vacía y describe cómo quieres decorarla.\n"
-    "Ejemplo: 'Añade sofá gris y planta verde junto a la ventana'.\n\n"
-    "Optimizado para CPU gratuita: la generación puede tardar 30–60 s."
+    "Sube una foto de tu habitación vacía y pinta de blanco la zona que quieras decorar.\n"
+    "Describe la decoración que deseas en el prompt.\n"
+    "Ejemplo: 'Añade un sofá gris moderno y un cuadro encima en la pared blanca'.\n\n"
+    "Optimizado para CPU gratuita: generación rápida usando pasos limitados."
 )
 
-# Interfaz Gradio con sliders originales
+# Interfaz Gradio con sliders actualizados
 demo = gr.Interface(
     fn=decorar,
     inputs=[
         gr.Image(type="pil", label="Sube tu habitación"),
+        gr.Image(type="pil", label="Pinta en blanco la zona a editar (máscara)"),
         gr.Textbox(label="Describe la decoración que deseas"),
-        gr.Slider(1, 10, value=7.5, label="Nivel de detalle (guidance scale)"),
-        gr.Slider(5, 50, value=20, step=1, label="Pasos de inferencia")
+        gr.Slider(1, 15, value=9, label="Nivel de detalle (guidance scale)"),
+        gr.Slider(5, 50, value=25, step=1, label="Pasos de inferencia")
     ],
     outputs=gr.Image(label="Habitación decorada"),
     title=titulo,
@@ -55,5 +57,6 @@ demo = gr.Interface(
 )
 
 demo.launch()
+
 
 
