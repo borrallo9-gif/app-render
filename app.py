@@ -4,10 +4,10 @@ from PIL import Image
 import torch
 import os
 
-# Obtener token desde los Secrets del Space o Render
-HUGGINGFACE_TOKEN = os.environ.get("Token_App")
+# Obtener token desde Render
+HUGGINGFACE_TOKEN = os.environ.get("HF_TOKEN")
 if not HUGGINGFACE_TOKEN:
-    raise ValueError("❌ No se encontró el token. Asegúrate de tener 'Token_App' en los Secrets del Space o en Render.")
+    raise ValueError("❌ No se encontró el token. Asegúrate de tener 'HF_TOKEN' en Render.")
 
 # Detectar dispositivo
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -23,24 +23,13 @@ pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
 def decorar_img2img(init_image, prompt, strength=0.7, guidance_scale=7.5):
     if init_image is None:
         return None
-    
     init_image = init_image.convert("RGB")
     
     if device == "cuda":
         with torch.autocast("cuda"):
-            result = pipe(
-                prompt=prompt,
-                image=init_image,
-                strength=strength,
-                guidance_scale=guidance_scale
-            )
+            result = pipe(prompt=prompt, image=init_image, strength=strength, guidance_scale=guidance_scale)
     else:
-        result = pipe(
-            prompt=prompt,
-            image=init_image,
-            strength=strength,
-            guidance_scale=guidance_scale
-        )
+        result = pipe(prompt=prompt, image=init_image, strength=strength, guidance_scale=guidance_scale)
 
     return result.images[0]
 
@@ -58,10 +47,10 @@ iface = gr.Interface(
     description="Sube una imagen y decórala según el prompt usando Realistic Vision V5.1_noVAE"
 )
 
-# Lanzar servidor compatible con Hugging Face y Render
+# Lanzar servidor compatible con Render
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7860))
-    iface.launch(server_name="0.0.0.0", server_port=port)
+    iface.launch(server_name="0.0.0.0", server_port=port, share=False)
 
 
 
