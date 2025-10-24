@@ -5,9 +5,9 @@ import torch
 import os
 
 # Obtener token desde Render
-HUGGINGFACE_TOKEN = os.environ.get("HF_TOKEN")
+HUGGINGFACE_TOKEN = os.environ.get("App_Token")
 if not HUGGINGFACE_TOKEN:
-    raise ValueError("❌ No se encontró el token. Asegúrate de tener 'HF_TOKEN' en Render.")
+    raise ValueError("❌ No se encontró el token. Asegúrate de tener 'App_Token' en Render.")
 
 # Detectar dispositivo
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -51,7 +51,6 @@ iface = gr.Interface(
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7860))
     iface.launch(server_name="0.0.0.0", server_port=port, share=False)
-
 
 
 
