@@ -9,27 +9,43 @@ HUGGINGFACE_TOKEN = os.environ.get("HF_TOKEN")
 if not HUGGINGFACE_TOKEN:
     raise ValueError("❌ No se encontró el token. Asegúrate de tener 'HF_TOKEN' en Render.")
 
-# Detectar dispositivo
 device = "cuda" if torch.cuda.is_available() else "cpu"
+pipe = None  # 🔹 Aún no cargamos el modelo
 
-# Cargar pipeline
-pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
-    "SG161222/Realistic_Vision_V5.1_noVAE",
-    use_auth_token=HUGGINGFACE_TOKEN,
-    torch_dtype=torch.float16 if device == "cuda" else torch.float32
-).to(device)
+def get_pipeline():
+    """Carga el modelo solo la primera vez que se necesita."""
+    global pipe
+    if pipe is None:
+        pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
+            "SG161222/Realistic_Vision_V5.1_noVAE",
+            use_auth_token=HUGGINGFACE_TOKEN,
+            torch_dtype=torch.float16 if device == "cuda" else torch.float32
+        ).to(device)
+    return pipe
 
 # Función principal
 def decorar_img2img(init_image, prompt, strength=0.7, guidance_scale=7.5):
     if init_image is None:
         return None
+    
     init_image = init_image.convert("RGB")
+    pipe = get_pipeline()  # 🔹 Solo aquí se carga realmente el modelo
     
     if device == "cuda":
         with torch.autocast("cuda"):
-            result = pipe(prompt=prompt, image=init_image, strength=strength, guidance_scale=guidance_scale)
+            result = pipe(
+                prompt=prompt,
+                image=init_image,
+                strength=strength,
+                guidance_scale=guidance_scale
+            )
     else:
-        result = pipe(prompt=prompt, image=init_image, strength=strength, guidance_scale=guidance_scale)
+        result = pipe(
+            prompt=prompt,
+            image=init_image,
+            strength=strength,
+            guidance_scale=guidance_scale
+        )
 
     return result.images[0]
 
@@ -51,7 +67,6 @@ iface = gr.Interface(
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7860))
     iface.launch(server_name="0.0.0.0", server_port=port, share=False)
-
 
 
 
